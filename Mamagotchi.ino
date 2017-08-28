@@ -24,6 +24,7 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <stdint.h>
 #define DISPLAY_PIN 10
 
@@ -51,7 +52,8 @@ enum button_state_t
 
 int x = 0;
 volatile int timer = 0;
-state_t state = SPORT;
+state_t state = HEALTH;
+state_t old_state = HEALTH;
 volatile char awake = 1;
 volatile char displayOff = false;
 
@@ -59,6 +61,12 @@ volatile button_state_t action_button;
 int action_held=0;
 volatile button_state_t mode_button;
 int mode_held=0;
+
+volatile long wdt_runs = 0;
+ISR(WDT_vect)
+{
+  wdt_runs++;
+}
 
 void clear()
 {
@@ -74,6 +82,16 @@ void setup()   {
   // init done
   Serial.write("Init done\n");
 
+  //Set up WDT
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+
+  /* set new watchdog timeout prescaler value */
+  WDTCSR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */
+  
+  /* Enable the WD interrupt (note no reset). */
+  WDTCSR |= _BV(WDIE);
+
+  loadStatus();
   Serial.println(EEPROM.length());
 
   pinMode(2, INPUT);
@@ -84,6 +102,7 @@ void setup()   {
   display.clearDisplay();
   display.display();
 }
+
 void toggle()
 {
   awake = !awake;
@@ -91,6 +110,7 @@ void toggle()
 
 void powerDown()
 {
+  saveStatus();
   display.ssd1306_command(SSD1306_DISPLAYOFF);
   displayOff=true;
   noInterrupts();
@@ -114,6 +134,23 @@ void wakeup()
   //display.begin(SSD1306_SWITCHCAPVCC, 0x3C, 1);  // initialize with the I2C addr 0x3D (for the 128x64)
   awake = 1;
   timer = 0;
+}
+
+extern volatile int status_fitness;
+extern volatile int status_health;
+extern volatile int status_fed;
+extern volatile int status_drink;
+#define DECAY_DIVIDER 120
+void doDecay()
+{
+  if(wdt_runs>DECAY_DIVIDER)
+  {
+    status_fitness -= wdt_runs/DECAY_DIVIDER;
+    status_health -= wdt_runs/DECAY_DIVIDER;
+    status_fed -= wdt_runs/DECAY_DIVIDER;
+    status_drink -= wdt_runs/DECAY_DIVIDER;
+    wdt_runs=wdt_runs%DECAY_DIVIDER;
+  }
 }
 
 void doLogo()
@@ -152,6 +189,7 @@ void doLogo()
 
 void goIdle()
 {
+    old_state=state;
     state = IDLE;
     timer = 0;
     display.clearDisplay();
@@ -160,11 +198,13 @@ void goIdle()
 extern const uint8_t heart[32];
 void doIdle()
 {
+  limitStatus();
   display.drawBitmap(x % SSD1306_LCDWIDTH, 26+28*sin((float)x/35.0f), heart, 16, 16, 0);
   x++;
   if(digitalRead(2))
   {
-    state = SPORT;
+    state = old_state;
+    timer = 0;
     display.clearDisplay();
     return;
   }
@@ -178,11 +218,6 @@ void doIdle()
   {
     powerDown();
   }
-}
-
-void doMenuBar()
-{
-  
 }
 
 void doHunger()
@@ -250,6 +285,8 @@ void loop() {
     mode_held=0;
     goSelect();
   }
+
+  doDecay();
   
   if(awake && displayOff)
   {
@@ -265,6 +302,8 @@ void loop() {
     case FOOD: doHunger(); break;
     case SPORT: doSport(); break;
     case SELECT: doSelect(); break;
+    case STATUS: doStatus(); break;
+    case HEALTH: doHealth(); break;
   }
   display.display();
 }

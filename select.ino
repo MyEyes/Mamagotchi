@@ -31,6 +31,8 @@ void doSelect()
        display.drawChar(STATUS_OFF+54, 20, 'T', 1, 0, 3);
        display.drawChar(STATUS_OFF+71, 20, 'U', 1, 0, 3);
        display.drawChar(STATUS_OFF+88, 20, 'S', 1, 0, 3);
+       if(action_button==PRESSED)
+        goStatus();
       break;
     case FOOD:
     #define FOOD_OFF 26
@@ -55,6 +57,8 @@ void doSelect()
        display.drawChar(HEALTH_OFF+54, 20, 'L', 1, 0, 3);
        display.drawChar(HEALTH_OFF+71, 20, 'T', 1, 0, 3);
        display.drawChar(HEALTH_OFF+88, 20, 'H', 1, 0, 3);
+       if(action_button==PRESSED)
+        goHealth();
       break;
     case SPORT:
     #define SPORT_OFF 18
@@ -67,6 +71,5 @@ void doSelect()
         goSport();
       break;
   }
-  display.display();
 }
 

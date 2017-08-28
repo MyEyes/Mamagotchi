@@ -19,7 +19,7 @@ struct obstacle_t
   int position;
 };
 
-SPORT_CHAR_STATE old_state = RUNNING;
+SPORT_CHAR_STATE sport_old_state = RUNNING;
 int jumpHeight = 0;
 int jumpSpeed = 0;
 int sport_hit_countdown=0;
@@ -31,12 +31,14 @@ char obstacles_init=0;
 int obstacle_cooldown=40;
 obstacle_t sport_obstacles[MAX_OBSTACLES];
 
+extern volatile int status_health;
 void sport_take_hit()
 {
   for(int x=0; x<MAX_OBSTACLES; x++)
     sport_obstacles[x].active=0;
   obstacle_cooldown=40;
   sport_progress-=250;
+  status_health-=2;
   if(sport_progress<0)
     sport_progress=0;
   sport_hit_countdown=20;
@@ -47,7 +49,7 @@ void sport_win()
   for(int x=0; x<MAX_OBSTACLES; x++)
     sport_obstacles[x].active=0;
   obstacle_cooldown=40;
-  
+  status_fitness+=80;
   sport_win_countdown=120;
   sport_progress=0;
 }
@@ -72,7 +74,7 @@ void doSport()
   
   display.clearDisplay();
   //Player update
-  SPORT_CHAR_STATE state=old_state;
+  SPORT_CHAR_STATE state=sport_old_state;
   if(state==RUNNING && action_button==PRESSED)
   {
     state = JUMPING;
@@ -120,9 +122,32 @@ void doSport()
 
   if(sport_win_countdown)
   {
-     display.drawChar(33, 20, 'W', 1, 0, 4);
-     display.drawChar(55, 20, 'I', 1, 0, 4);
-     display.drawChar(77, 20, 'N', 1, 0, 4);
+     display.drawChar(33, 10, 'W', 1, 0, 4);
+     display.drawChar(55, 10, 'I', 1, 0, 4);
+     display.drawChar(77, 10, 'N', 1, 0, 4);
+     if(sport_win_countdown<60)
+     {
+       if(sport_win_countdown<58)
+        display.drawChar(20, 44, 'F', 1, 0, 1);
+       if(sport_win_countdown<56)
+        display.drawChar(29, 44, 'i', 1, 0, 1);
+       if(sport_win_countdown<54)
+        display.drawChar(38, 44, 't', 1, 0, 1);
+       if(sport_win_countdown<52)
+        display.drawChar(47, 44, 'n', 1, 0, 1);
+       if(sport_win_countdown<50)
+        display.drawChar(56, 44, 'e', 1, 0, 1);
+       if(sport_win_countdown<48)
+        display.drawChar(65, 44, 's', 1, 0, 1);
+       if(sport_win_countdown<46)
+        display.drawChar(74, 44, 's', 1, 0, 1);
+       if(sport_win_countdown<44)
+        display.drawChar(83, 44, '+', 1, 0, 1);
+       if(sport_win_countdown<42)
+        display.drawChar(92, 44, '8', 1, 0, 1);
+       if(sport_win_countdown<40)
+        display.drawChar(101, 44, '0', 1, 0, 1);
+     }
      sport_win_countdown--;
      return;
   }
@@ -168,6 +193,6 @@ void doSport()
   int frame = (timer/2)%4;
   const uint8_t* animation = state==RUNNING?run_frames:jump_frames;
   display.drawBitmap(10, jumpHeight+47, animation+frame*16*16/8, 16,16,1);
-  old_state=state;
+  sport_old_state=state;
   obstacle_cooldown--;
 }
